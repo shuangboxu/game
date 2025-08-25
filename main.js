@@ -47,10 +47,10 @@ const ROUTES = {
   subway: {
     name: '地铁直达',
     steps: [
-      { title: '出门 → 最近地铁站',
+      { title: '出门 → 最近地铁站南礼士路（耗时2分钟）',
         desc: '背包手机钥匙都在，快步前往地铁站…',
-        baseCost: 60,//过程耗时，已经扣除
-        actions: [{ label: '小跑前进（+1 体力消耗）', do: ()=> { game.hp = Math.max(0, game.hp-1); } }],
+        baseCost: 120,//过程耗时，已经扣除
+        //actions: [{ label: '小跑前进（+1 体力消耗）', do: ()=> { game.hp = Math.max(0, game.hp-1); } }],
       },
       { title: '进站闸机',
         desc: '人脸识别闸机排队中，偶尔卡壳…',
@@ -62,8 +62,12 @@ const ROUTES = {
         baseCost: 8,
         miniGame: { id: 'crowd', onResult: (ok)=> ok? 2 : 6 }, // 成功仍有拥挤代价
       },
+      { title: '乘坐地铁前往良乡大学城北站',
+        desc: '站了一路……',
+        baseCost: 3000,
+       },
       { title: '良乡大学城站 → 骑车',
-        desc: '出站扫码共享单车，赶往校园。',
+        desc: '小心警察……',
         baseCost: 10,
         miniGame: { id: 'bike', onResult: (ok)=> ok? 0 : 3 }, // 摔一次+3
       },
@@ -79,14 +83,22 @@ const ROUTES = {
   train: {
     name: '北京西 → 火车快线',
     steps: [
-      { title: '地铁 → 北京西站',
-        desc: '需要穿越人潮换乘到北京西站。',
+      { title: '出门 → 最近地铁站南礼士路（耗时2分钟）',
+        desc: '背包手机钥匙都在，快步前往地铁站…',
+        baseCost: 120,//过程耗时，已经扣除
+       },
+      { title: '一号线前往军事博物馆站',
+        desc: '运气很好，正好赶上满载的一号线',
+        baseCost: 300,
+       },
+      { title: '1号线 → 9号线',
+        desc: '需要穿越人潮换乘到9号线。',
         baseCost: 0,
         miniGame: { id: 'crowd', onResult: (ok)=> ok? 1 : 5 },
       },
       { title: '抢票',
         desc: '12306 余票紧张，操作要快。',
-        baseCost: 2,
+        baseCost: 20,
         miniGame: { id: '12306', onResult: (ok)=> ok? 0 : 99 }, // 失败则视作买不到：强制换方案
         // 如果失败，下面 actions 里会分支
       },
@@ -100,7 +112,7 @@ const ROUTES = {
       },
       { title: '到站 → 打车',
         desc: '下车后拦车，司机试图走小路。',
-        baseCost: 10,
+        baseCost: 500,
         miniGame: { id: 'taxi', onResult: (ok)=> ok? 0 : 6 },
       },
     ]
@@ -158,12 +170,12 @@ const ROUTES = {
 
 //工具函数
 //把分钟转换成 “MM:SS” 格式
-function mmss(mins) {
-  const m = Math.max(0, Math.floor(mins));
-  const s = Math.round((mins - Math.floor(mins)) * 60);
-  const mm = String(m).padStart(2, '0');//转成 2 位字符串，不足补零，例如 5 → "05"
-  const ss = String(s).padStart(2, '0');
-  return `${mm}:${ss}`;
+function mmss(seconds) {
+  const sign = seconds < 0 ? "-" : ""; // 如果是负数，加上负号
+  const s = Math.abs(Math.floor(seconds)); // 取绝对值
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return sign + String(m).padStart(2, '0') + ":" + String(sec).padStart(2, '0');
 }
 //写入日志
 function logMsg(text) {
@@ -182,7 +194,7 @@ function spend(secs) {
 function setState(text) { $state.textContent = text; }
 // 渲染时格式化 mm:ss
 function renderClock() { 
-  $clock.textContent = mmss(game.remaining / 60); 
+  $clock.textContent = mmss(game.remaining); 
 }
 
 /** ========================
@@ -314,12 +326,12 @@ function startCountdown() {
   tickHandle = setInterval(() => {
     if (!game.running) return;
     game.remaining -= 1; // 每秒减 1 秒
-    if (game.remaining <= 0) {
-      game.remaining = 0;
-      renderClock();
-      clearInterval(tickHandle);
-      return finishJourney();
-    }
+    // if (game.remaining <= 0) {
+    //   game.remaining = 0;
+    //   renderClock();
+    //   clearInterval(tickHandle);
+    //   return finishJourney();
+    // }
     renderClock();
   }, 1000);
 }
@@ -411,19 +423,22 @@ function finishJourney() {
 
   const late = Math.max(0, Math.ceil(-game.remaining)); // 如果剩余为负，表示晚了多少分钟
   let text = '';
-  if (game.remaining > 10) {
-    text = `🎉 <span class="ok">完美结局</span>：提前到达（剩余 ${Math.round(game.remaining)} 分钟）。你就是“考场 MVP”。`;
+  if (game.remaining > 600) {
+    text = `🎉 <span class="ok">完美结局</span>：提前到达（剩余 ${Math.round(game.remaining)} 秒）。你在考场门口吃了根烤肠，还顺手帮监考老师搬了桌子，荣获“考场 MVP”称号！`;
   } else if (game.remaining >= 0) {
-    text = `✅ 普通结局：勉强准点或略有余裕（剩余 ${Math.round(game.remaining)} 分钟）。`;
-  } else if (late <= 10) {
-    text = `😓 普通结局：迟到 ${late} 分钟，灰头土脸赶到。`;
-  } else if (late <= 30) {
-    text = `❌ 失败结局：迟到 ${late} 分钟，考试压力山大。`;
+    text = `✅ 普通结局：勉强准点（剩余 ${Math.round(game.remaining)} 秒钟）。你冲进教室大喊“老师别关门！”，结果还是踩着铃声坐下了，心跳当场变成 180。`;
+  } else if (late <= 300) {
+    text = `😓 小翻车结局：迟到 ${late} 秒，满头大汗，裤脚还夹着共享单车锁链。考场同学纷纷投来“辛苦了”的眼神。`;
+  } else if (late <= 600) {
+    text = `❌ 悲催结局：迟到 ${late} 秒，你推门而入，赵丰年老师摇头叹气：<em>“年轻人，地铁挤不过时间。”</em>`;
   } else {
-    text = `💥 坏结局：迟到 ${late} 分钟以上，考试失之交臂。`;
+  text = `💥 坏结局：迟到 ${late} 秒以上。你气喘吁吁冲进考场门口，却被赵丰年拦住：<br>
+  <em>“同学，别费劲了，机会已经溜走，就像你追不上地铁一样。”</em><br>
+  你被温柔而坚定地请出了考场，只能在门口默默望天……`;
   }
+
   // 隐藏结局示例（体力/连续成功等条件都可以触发）
-  if (game.hp >= 80 && game.remaining >= 15) {
+  if (game.hp >= 80 && game.remaining >= 800) {
     text += `<br>🌟 <span class="warnc">隐藏结局</span>：一路顺利，还在校门口和同学唠嗑；赵丰年老师看你很努力，给你加了点分。`;
   }
   $endingText.innerHTML = text;
