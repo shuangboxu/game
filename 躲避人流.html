@@ -29,7 +29,7 @@
 
     let enemies = [];
     let gameOver = false;
-    let spawnRate = 60; // 敌人生成间隔
+    let spawnRate = 40; // 敌人生成间隔60
     let frameCount = 0;
 
     // 游戏运行时长（固定 30 秒）
@@ -140,7 +140,7 @@ function endGame() {
       frameCount++;
       if (frameCount % spawnRate === 0) {
         spawnEnemy();
-        if (spawnRate > 15) spawnRate--; // 敌人越来越多
+        if (spawnRate > 10) spawnRate--; // 敌人越来越多15
       }
 
       checkCollision();
