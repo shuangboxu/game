@@ -183,13 +183,24 @@ function logMsg(text) {
   $log.textContent = game.log.join('\n');
 }
 // 消耗时间（秒为单位）
+// 消耗时间（秒为单位）
 function spend(secs) {
   game.remaining -= secs;
-  // 把消耗时间和剩余时间转换成 分:秒 格式
-  const spent = mmss(secs / 60);
-  const remaining = mmss(Math.max(0, game.remaining) / 60);
-  logMsg(`- 花费 ${spent} | 剩余 ${remaining}`);
+
+  // 把消耗时间转成 mm:ss
+  const spent = mmss(secs);
+
+  // 剩余时间（允许负数）
+  const remaining = mmss(game.remaining);
+
+  if (game.remaining >= 0) {
+    logMsg(`- 花费 ${spent} | 剩余 ${remaining}`);
+  } else {
+    logMsg(`- 花费 ${spent} | 😱 已经迟到 ${remaining.replace('-', '')}`);
+  }
 }
+
+
 
 function setState(text) { $state.textContent = text; }
 // 渲染时格式化 mm:ss
