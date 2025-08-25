@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>良乡赶考 · 互动叙事主程序</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />  <!-- 设置移动端视口，使网页在手机上自适应屏幕宽度 -->
+  <!-- 引入外部 CSS 文件 -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<header>
+  <div class="bar">
+    <div class="title">良乡赶考</div>
+    <div id="clock" class="pill">剩余时间 <strong>60:00</strong></div>
+    <div id="state" class="pill">状态 <strong>准备中</strong></div>
+  </div>
+</header>
+
+<main>
+  <!-- 开场说明 -->
+  <section id="intro" class="card">
+    <h3 style="text-align:center; font-size:32px;">开场</h3>
+
+    <p style="text-align:center; font-size:18px;">
+      你住在 <strong>西城区</strong>，下午小憩后醒来，手机弹出消息：<br>
+      <em>“还有 60 分钟 就要在 <strong>北京理工大学良乡校区</strong> 参加 <strong>赵丰年</strong> 的考试！<span style="color:red; font-weight:bold;">GET CRAZYYY !</span>”</em>
+    </p>
+
+    <p class="muted" style="text-align:center;">
+      目标：在时间内赶到良乡校区考场。过程中会面临不同路线与事件，某些节点会进入小游戏，结果影响你花费的时间。
+    </p>
+
+    <div class="row" style="display:flex; justify-content:center; gap:10px;">
+      <button id="startBtn" class="btn primary">我已清醒，开始出发</button>
+      <button id="howBtn" class="btn">查看规则</button>
+    </div>
+
+
+  </section>
+
+  <!-- 路线选择 -->
+  <section id="routes" class="card" style="display:none">
+    <h3>选择路线（现在只做了路线二的一部分）</h3>
+    <div class="grid">
+      <div class="route">
+        <h4>路线 1：地铁直达 <span class="tag">稳定</span></h4>
+        <div class="muted">西城区 → 地铁4号线 → 良乡大学城北站 → 骑车10分钟 → 校园考场</div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn accent" data-route="subway">选这条</button>
+        </div>
+      </div>
+      <div class="route">
+        <h4>路线 2：北京西站 → 火车快线 <span class="tag">理论最快</span></h4>
+        <div class="muted">地铁到北京西 → 火车 18:40-19:06 → 打车10分钟 → 校园</div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn accent" data-route="train">选这条</button>
+        </div>
+      </div>
+      <div class="route">
+        <h4>路线 3：直接打车 <span class="tag">简单</span></h4>
+        <div class="muted">一条直路，但你没钱，可能堵车，注意红绿灯与路线选择</div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn accent" data-route="taxi">选这条</button>
+        </div>
+      </div>
+      <div class="route">
+        <h4>路线 4：共享单车 + 地铁 <span class="tag">灵活</span></h4>
+        <div class="muted">骑到最近大站 → 换乘地铁 → 良乡（含体力管理）</div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn accent" data-route="bikecombo">选这条</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 当前节点 -->
+  <section id="node" class="card" style="display:none">
+    <h3 id="nodeTitle">节点</h3>
+    <p id="nodeDesc" class="muted">描述</p>
+    <div id="nodeActions" class="row"></div>
+  </section>
+
+  <!-- 日志 -->
+  <section id="logWrap" class="card" style="display:none">
+    <h3>行程记录</h3>
+    <div id="log" class="log"></div>
+  </section>
+
+  <!-- 结局 -->
+  <section id="ending" class="card" style="display:none">
+    <h3>结果</h3>
+    <p id="endingText"></p>
+    <div class="row">
+      <button id="restartBtn" class="btn">再来一次</button>
+    </div>
+  </section>
+</main>
+
+<!-- 规则弹窗 -->
+<dialog id="ruleDlg">
+  <div class="modal" style="
+       display:flex;
+       flex-direction:column;
+       justify-content:center;
+       align-items:center;
+       padding:20px;
+  ">
+    <h3 style="text-align:center;">规则</h3>
+    <ol style="text-align:left;">
+      <li>总时间：<strong>60 分钟</strong>（顶部实时减少）。</li>
+      <li>选择不同路线与操作会<strong>消耗时间</strong>，部分节点会进入<strong>小游戏</strong>，成功/失败将带来<strong>不同时间代价</strong>。</li>
+      <li>剩余时间 ≤ 0 即视为<strong>迟到</strong>，将根据迟到时长给出结局。</li>
+    </ol>
+    <div class="row" style="margin-top:10px;">
+      <button id="ruleClose" class="btn primary">明白了</button>
+    </div>
+  </div>
+</dialog>
+
+
+<!-- 通用 QTE 占位小游戏弹窗（可替换为你自己的 Canvas 小游戏） -->
+<dialog id="qteDlg">
+  <div class="modal">
+    <h3 id="qteTitle">快速反应！</h3>
+    <p id="qteDesc" class="muted">在 3 秒内按下 <span class="kbd">Space</span> 或点击下方按钮。</p>
+    <div class="row" style="margin-top:8px">
+      <button id="qteBtn" class="btn primary">现在！</button>
+      <button id="qteGiveup" class="btn">认输</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>人流躲避小游戏</title>
+  <style>
+    body { text-align: center; background: #f4f4f4; }
+    canvas { background: white; border: 2px solid #333; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h2>🚇 人流躲避战</h2>
+  <!-- 👇 这里可以改画布高度，比如改成 300、400 都行 -->
+  <canvas id="gameCanvas" width="400" height="400"></canvas>
+  <p id="status"></p>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // 玩家
+    const player = {
+      x: canvas.width / 2,
+      y: canvas.height - 50,
+      radius: 15,
+      color: "blue",
+      speed: 3 // 每次按键移动更灵敏
+    };
+
+    let enemies = [];
+    let gameOver = false;
+    let spawnRate = 60; // 敌人生成间隔
+    let frameCount = 0;
+
+    // 游戏运行时长（固定 30 秒）
+    let gameTime = 10;
+    // 迟到计时表（初始 30 秒，碰到红球 +10）
+    let lateTime = 30;
+    let gameStarted = false;
+    let timerInterval;
+
+    // 键盘控制
+    let keys = {};
+    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keyup", e => keys[e.key] = false);
+
+    // 鼠标控制
+    canvas.addEventListener("mousemove", e => {
+      const rect = canvas.getBoundingClientRect();
+      player.x = e.clientX - rect.left;
+    });
+
+    function drawPlayer() {
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fillStyle = player.color;
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function drawEnemies() {
+      enemies.forEach(e => {
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+        ctx.fillStyle = e.color;
+        ctx.fill();
+        ctx.closePath();
+      });
+    }
+
+    function updateEnemies() {
+      enemies.forEach(e => e.y += e.speed);
+      enemies = enemies.filter(e => e.y < canvas.height + e.radius);
+    }
+
+    function spawnEnemy() {
+      const radius = 12;
+      const x = Math.random() * (canvas.width - radius * 2) + radius;
+      enemies.push({ x, y: -radius, radius, color: "red", speed: 3 });
+    }
+
+    function checkCollision() {
+      for (let e of enemies) {
+        let dx = e.x - player.x;
+        let dy = e.y - player.y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < e.radius + player.radius) {
+          // 撞到红球 -> 迟到计时表 +10 秒
+          lateTime += 10;
+          enemies.splice(enemies.indexOf(e), 1); // 删除被撞的球
+        }
+      }
+    }
+
+    function updatePlayer() {
+      if (keys["ArrowLeft"] && player.x - player.radius > 0) {
+        player.x -= player.speed;
+      }
+      if (keys["ArrowRight"] && player.x + player.radius < canvas.width) {
+        player.x += player.speed;
+      }
+    }
+
+    function drawTimer() {
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "black";
+      ctx.fillText("游戏剩余: " + gameTime + " 秒", 20, 30);
+      ctx.fillText("迟到计时: " + lateTime + " 秒", 20, 55);
+    }
+
+function endGame() {
+  gameOver = true;
+  clearInterval(timerInterval);
+
+  let msg;
+  if (lateTime >= 90) {
+    msg = "❌ 没赶上火车（迟到 " + lateTime + " 秒）";
+  } else {
+    msg = "✅ 成功赶上火车！（迟到 " + lateTime + " 秒）";
+  }
+  document.getElementById("status").innerText = msg;
+
+  // ===== 新增：把结果传回主程序 =====
+  if (window.opener && window.opener.applyMiniGameResult) {
+    window.opener.applyMiniGameResult(lateTime);
+  }
+  // 自动关闭小游戏窗口
+  setTimeout(() => window.close(), 2000);
+}
+
+
+    function gameLoop() {
+      if (gameOver) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      updatePlayer();
+      updateEnemies();
+
+      frameCount++;
+      if (frameCount % spawnRate === 0) {
+        spawnEnemy();
+        if (spawnRate > 15) spawnRate--; // 敌人越来越多
+      }
+
+      checkCollision();
+
+      drawPlayer();
+      drawEnemies();
+      drawTimer();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function startGame() {
+      alert(
+  "🚇【人流躲避小游戏】\n\n" +
+  "场景：下班高峰，北京地铁站人山人海！\n" +
+  "你就是那个急着赶火车的考生，小蓝球 = 你，红色小球 = 下班回家的人。\n\n" +
+  "玩法：\n" +
+  "- 用鼠标移动 或 ← → 方向键控制小蓝球左右闪避\n" +
+  "- 游戏运行时间：10 秒\n" +
+  "- 屏幕右上角显示的是【迟到计时】（初始 30 秒）\n" +
+  "- 每次被红球撞上，你就在人群里被绊住：+10 秒迟到\n\n" +
+  "目标：\n" +
+  "尽量少撞人！\n\n" +
+  "现在深呼吸，准备冲进人流吧！🚀"
+);
+
+      gameStarted = true;
+
+      // 倒计时逻辑（游戏只跑30秒）
+      timerInterval = setInterval(() => {
+        if (gameTime > 0) {
+          gameTime--;
+        } else {
+          endGame();
+        }
+      }, 1000);
+
+      gameLoop();
+    }
+
+    // 开始游戏
+    startGame();
+    
+  </script>
+</body>
+</html>
