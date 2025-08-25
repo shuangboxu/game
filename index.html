@@ -20,12 +20,13 @@
 <main>
   <!-- 开场说明 -->
   <section id="intro" class="card">
-    <h3 style="text-align:center; font-size:32px;">开场</h3>
+<h3 id="introTitle" style="text-align:center; font-size:32px;">⚡ 开场 ⚡</h3>
 
-    <p style="text-align:center; font-size:18px;">
-      你住在 <strong>西城区</strong>，下午小憩后醒来，手机弹出消息：<br>
-      <em>“还有 60 分钟 就要在 <strong>北京理工大学良乡校区</strong> 参加 <strong>赵丰年</strong> 的考试！<span style="color:red; font-weight:bold;">GET CRAZYYY !</span>”</em>
-    </p>
+<p style="text-align:center; font-size:18px; line-height:1.8;">
+  <span id="introText"></span>
+</p>
+
+
     <div style="text-align:center; margin-top:10px;">
     <img src="crazy.jpg" alt="crazy" style="max-width:300px;">
     </div>
@@ -44,7 +45,7 @@
 
   <!-- 路线选择 -->
   <section id="routes" class="card" style="display:none">
-    <h3>选择路线（现在只做了路线二的一部分）</h3>
+    <h3>选择路线（现在只做了路线一/二的一部分）</h3>
     <div class="grid">
       <div class="route">
         <h4>路线 1：地铁直达 <span class="tag">稳定</span></h4>
@@ -134,6 +135,7 @@
   </div>
 </dialog>
 
+<script src="intro.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

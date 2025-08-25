@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🚲 骑行避障 — 良乡赶考小游戏</title>
+<style>
+  html,body{height:100%;margin:0;background:linear-gradient(#e6f0ff,#dbefff);-webkit-user-select:none;user-select:none;}
+  body{font-family:system-ui,Segoe UI,Roboto,Arial;color:#0b1224;display:flex;flex-direction:column;align-items:center;}
+  header{width:100%;max-width:980px;padding:12px 16px;display:flex;align-items:center;gap:12px}
+  h1{margin:0;font-size:18px}
+  #gameWrap{width:100%;max-width:980px;padding:12px;box-sizing:border-box;}
+  canvas{display:block;width:100%;height:auto;border-radius:12px;background:#6b7280;box-shadow:0 8px 24px rgba(2,6,23,.12)}
+  .hud{display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:12px}
+  .panel{background:#fff;padding:8px 10px;border-radius:10px;box-shadow:0 4px 10px rgba(2,6,23,.06);font-size:14px}
+  .big{font-weight:700;font-size:16px}
+  #message{position:fixed;left:50%;transform:translateX(-50%);top:40%;background:#111827;color:#fff;padding:12px 18px;border-radius:12px;display:none;z-index:40}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+  .ctl{padding:10px 14px;border-radius:8px;background:#fff;border:1px solid rgba(16,24,39,.06);box-shadow:0 6px 12px rgba(2,6,23,.05);font-weight:700}
+  .ctl:active{transform:translateY(1px)}
+  .mobile-note{font-size:12px;color:#374151;margin-top:6px;text-align:center}
+  footer{margin:12px 0 40px;color:#374151;font-size:12px}
+  @media (max-width:600px){
+    header{padding:8px}
+    .panel{font-size:13px}
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🚲 骑行避障挑战 — 1000m</h1>
+    <div style="flex:1"></div>
+    <div class="panel">操作：←/→ 切换车道，↑ 增速，↓ 减速（长按↑提速）</div>
+  </header>
+
+  <div id="gameWrap">
+    <canvas id="cv" width="900" height="360"></canvas>
+
+    <div class="hud">
+      <div class="panel">
+        <div>进度：<span id="dist">0</span> / 1000 m</div>
+        <div class="big">速度：<span id="spd">0.0</span> m/s</div>
+      </div>
+      <div class="panel">
+        <div>已用时间：<span id="etime">0.0</span> s</div>
+        <div>惩罚累计：<span id="penalty">0</span> s</div>
+      </div>
+      <div class="panel">
+        <div>碰撞：<span id="hits">0</span></div>
+        <div><button id="btnReturn" class="ctl">返回主任务</button></div>
+      </div>
+    </div>
+
+    <!-- 触屏按钮（移动端友好） -->
+    <div class="controls" id="touchControls" style="margin-top:10px">
+      <button class="ctl" id="btnLeft">←</button>
+      <button class="ctl" id="btnForward">↑</button>
+      <button class="ctl" id="btnRight">→</button>
+      <button class="ctl" id="btnBrake">↓</button>
+    </div>
+    <div class="mobile-note">移动端：按住↑可加速，左右切道避开障碍</div>
+  </div>
+
+  <div id="message"></div>
+
+<script>
+/*
+  说明：
+  - 路程：1000 米
+  - 玩家用速度（m/s）前进，初始速度 4 m/s（约 14.4 km/h）
+  - 控制：← → 切换车道（3 车道），↑ 加速（持续按会增长），↓ 刹车
+  - 障碍：石头、路牙、逆行行人、交警、坑洞等
+      各障碍惩罚（秒）：石头 5s、路牙 15s、行人 20s、交警 60s、坑洞 10s
+  - 碰撞后会闪出提示（几秒），并把惩罚累加到 penalty
+  - 结束计算：result = Math.round(elapsed_seconds * 10) + penalty_seconds
+  - 结束后回调主页面：window.opener.applyMiniGameResult(result)
+*/
+
+const canvas = document.getElementById('cv');
+const ctx = canvas.getContext('2d');
+
+let W = canvas.width, H = canvas.height;
+let lastObstaclePos = 0; 
+
+
+// 游戏参数
+const TOTAL_DIST = 1000; // m
+let dist = 0;            // 已走米
+let elapsed = 0;         // 实际用时秒（float）
+let penalty = 0;         // 惩罚秒数累计
+let hits = 0;
+
+let lanes = 10;
+let laneX = []; // x positions for lanes (computed)
+let player = { lane:1, x:0, y: H - 80, width:28, height:18, speed: 4.0 }; // speed m/s
+const MAX_SPEED = 30;
+const MIN_SPEED = 0.5;
+const ACC = 0.2; // 每帧加速度（m/s per frame, scaled by dt)
+const FRICTION = 0.02;
+
+let keys = {};
+let touchState = {left:false,right:false,forward:false,brake:false};
+let running = true;
+let lastTs = null;
+
+// 障碍数据：随机生成在 1000m 区间内
+const OB_TYPES = [
+  { id:'stone', label:'石头', color:'#a6a6a6', penalty:5 },
+  { id:'curb',  label:'路牙', color:'#b5651d', penalty:15 },
+  { id:'ped',   label:'逆行行人', color:'#ff8a65', penalty:20 },
+  { id:'cop',   label:'交警', color:'#ef4444', penalty:60 },
+  { id:'hole',  label:'坑洞', color:'#6b7280', penalty:10 },
+];
+let obstacles = [];
+
+// 触发闪字
+const msgEl = document.getElementById('message');
+function flash(text, time=1400) {
+  msgEl.textContent = text;
+  msgEl.style.display = 'block';
+  msgEl.style.opacity = '1';
+  setTimeout(()=> {
+    msgEl.style.transition = 'opacity 400ms';
+    msgEl.style.opacity = '0';
+    setTimeout(()=> { msgEl.style.display='none'; msgEl.style.transition=''; }, 420);
+  }, time);
+}
+
+// 初始化
+function init() {
+  // lane x positions
+  const roadMargin = 60;
+  const roadWidth = W - roadMargin*2;
+  for (let i=0;i<lanes;i++){
+    laneX[i] = roadMargin + roadWidth*(i/(lanes-1));
+  }
+  player.x = laneX[player.lane];
+
+  // 随机生成 obstacles
+  obstacles = [];
+  // 确保一些关键障碍分布（不会太靠近开始）
+  for (let i=0;i<40;i++){
+    const t = Math.random();
+    const pos = 60 + Math.pow(Math.random(),0.8) * (TOTAL_DIST-120); // 保证在 60-940m
+    const type = OB_TYPES[Math.floor(Math.random()*OB_TYPES.length)];
+    const lane = Math.floor(Math.random()*lanes);
+    obstacles.push({pos: Math.floor(pos), lane, type, hit:false});
+  }
+
+  // 一些必定存在的大障碍（提高戏剧性），比如1个交警
+  obstacles.push({pos: Math.floor(TOTAL_DIST*0.6), lane:1, type: OB_TYPES.find(o=>o.id==='cop'), hit:false});
+  obstacles.sort((a,b)=>a.pos - b.pos);
+
+  // touch buttons
+  setupControls();
+  drawFrame(); // initial draw
+}
+
+function setupControls() {
+  // 鼠标/键盘
+  window.addEventListener('keydown', e => { keys[e.key]=true; e.preventDefault(); });
+  window.addEventListener('keyup', e => { keys[e.key]=false; });
+
+  // touch buttons
+  const btnL = document.getElementById('btnLeft');
+  const btnR = document.getElementById('btnRight');
+  const btnF = document.getElementById('btnForward');
+  const btnB = document.getElementById('btnBrake');
+  btnL.addEventListener('touchstart', ()=> touchState.left=true); btnL.addEventListener('touchend', ()=> touchState.left=false);
+  btnR.addEventListener('touchstart', ()=> touchState.right=true); btnR.addEventListener('touchend', ()=> touchState.right=false);
+  btnF.addEventListener('touchstart', ()=> touchState.forward=true); btnF.addEventListener('touchend', ()=> touchState.forward=false);
+  btnB.addEventListener('touchstart', ()=> touchState.brake=true); btnB.addEventListener('touchend', ()=> touchState.brake=false);
+
+  // return button
+  document.getElementById('btnReturn').onclick = ()=> {
+    // 不直接关闭（移动端可能被拦），但回传当前结果（按你规则）并提示用户返回
+    finishAndReturn();
+  };
+}
+
+function update(dt) {
+  if (!running) return;
+  // dt in seconds
+  elapsed += dt;
+
+  // input - lanes
+  if (keys['ArrowLeft'] || keys['a'] || touchState.left) {
+    player.lane = Math.max(0, player.lane - 1);
+    player.x = laneX[player.lane];
+    // avoid continuous multi-steps per keypress: reset after move briefly
+    keys['ArrowLeft']=false; touchState.left=false;
+  }
+  if (keys['ArrowRight'] || keys['d'] || touchState.right) {
+    player.lane = Math.min(lanes-1, player.lane + 1);
+    player.x = laneX[player.lane];
+    keys['ArrowRight']=false; touchState.right=false;
+  }
+
+  // speed control
+  const forwardPressed = keys['ArrowUp'] || keys['w'] || touchState.forward;
+  const backPressed = keys['ArrowDown'] || keys['s'] || touchState.brake;
+
+  if (forwardPressed) {
+    player.speed += ACC * 60 * dt; // scale to m/s per second
+  } else {
+    // friction slows a bit
+    player.speed -= FRICTION * 60 * dt;
+  }
+  if (backPressed) player.speed -= ACC * 80 * dt;
+
+  // clamp
+  if (player.speed > MAX_SPEED) player.speed = MAX_SPEED;
+  if (player.speed < MIN_SPEED) player.speed = MIN_SPEED;
+
+  // advance distance (meters)
+  dist += player.speed * dt * 3.0; // 障碍物移速
+  // check obstacles: any obstacle within small threshold ahead and same lane
+  for (let ob of obstacles) {
+    if (ob.hit) continue;
+    // if we've reached or passed obstacle position
+    if (dist >= ob.pos - 0.5 && dist <= ob.pos + 2.0 && ob.lane === player.lane) {
+      // collision
+      ob.hit = true;
+      handleCollision(ob);
+    }
+  }
+
+  // update HUD
+  document.getElementById('dist').textContent = Math.min(Math.floor(dist), TOTAL_DIST);
+  document.getElementById('spd').textContent = player.speed.toFixed(1);
+  document.getElementById('etime').textContent = elapsed.toFixed(1);
+  document.getElementById('penalty').textContent = penalty;
+  document.getElementById('hits').textContent = hits;
+
+  if (dist >= TOTAL_DIST) {
+    finishAndReturn();
+  }
+  // 动态生成障碍：每跑过一定距离就往前方刷一个
+if (dist > lastObstaclePos + 30 && dist < TOTAL_DIST - 50) {
+  lastObstaclePos = dist;
+  const type = OB_TYPES[Math.floor(Math.random() * OB_TYPES.length)];
+  const lane = Math.floor(Math.random() * lanes);
+  obstacles.push({
+    pos: dist + 100,   // 生成在玩家前方 100 米
+    lane,
+    type,
+    hit: false
+  });
+}
+
+}
+
+function handleCollision(ob) {
+  hits++;
+  const p = ob.type.penalty;
+  penalty += p;
+  // 轻微碰撞降低速度短暂
+  player.speed = Math.max(MIN_SPEED, player.speed * 0.6);
+  flash(`碰到【${ob.type.label}】！惩罚 ${p} 秒`, 1400);
+  // draw small spark effect (handled in draw)
+}
+
+// 渲染路面和对象（简洁但美观）
+function drawFrame() {
+  // clear
+  ctx.clearRect(0,0,W,H);
+
+  // road background
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(40, 30, W-80, H-100);
+
+  // lane lines
+  for (let i=0;i<lanes;i++){
+    const x = laneX[i];
+    ctx.beginPath();
+    ctx.strokeStyle = '#94a3b822';
+    ctx.lineWidth = 2;
+    ctx.moveTo(x, 30);
+    ctx.lineTo(x, H-70);
+    ctx.stroke();
+  }
+
+  // draw obstacles ahead (only those within some window)
+  ctx.save();
+  ctx.translate(0,0);
+  // we show obstacles relative to dist: compute screen y by mapping (ob.pos - dist) to screen height
+  for (let ob of obstacles) {
+    if (ob.hit) continue;
+    const delta = ob.pos - dist;
+    if (delta < -5 || delta > 120) continue; // only draw within range
+    // map delta 0..120 -> screen y from (H-120) up to 60
+    const ratio = Math.max(0, Math.min(1, 1 - delta/120));
+    const y = 60 + ratio*(H-140);
+    const x = laneX[ob.lane];
+    // draw icon depending on type
+    ctx.save();
+    ctx.translate(x, y);
+    // drop shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.beginPath(); ctx.ellipse(0,16,18,6,0,0,Math.PI*2); ctx.fill();
+    // shape
+    ctx.fillStyle = ob.type.color;
+    if (ob.type.id === 'stone') {
+      ctx.beginPath(); ctx.moveTo(-12,0); ctx.lineTo(0,-14); ctx.lineTo(12,0); ctx.lineTo(6,10); ctx.lineTo(-6,10); ctx.closePath(); ctx.fill();
+    } else if (ob.type.id === 'curb') {
+      ctx.fillRect(-14,-8,28,16);
+      ctx.fillStyle = '#fff'; ctx.fillRect(-14,-8,6,16);
+    } else if (ob.type.id === 'ped') {
+      ctx.beginPath(); ctx.arc(0,-6,8,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.fillRect(-2,2,4,8);
+    } else if (ob.type.id === 'cop') {
+      ctx.fillStyle = ob.type.color; ctx.beginPath(); ctx.rect(-10,-12,20,20); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.fillRect(-6,-2,12,4);
+    } else if (ob.type.id === 'hole') {
+      ctx.fillStyle='#071133'; ctx.beginPath(); ctx.ellipse(0,0,14,8,0,0,Math.PI*2); ctx.fill();
+    } else {
+      ctx.fillRect(-8,-8,16,16);
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // draw player bike (fixed near bottom)
+  ctx.save();
+  const px = player.x;
+  const py = player.y;
+  ctx.translate(px, py);
+  // wheels
+  ctx.fillStyle = '#111827';
+  ctx.beginPath(); ctx.arc(-14, 16, 8, 0, Math.PI*2); ctx.arc(14, 16, 8, 0, Math.PI*2); ctx.fill();
+  // body
+  ctx.fillStyle = '#0ea5e9';
+  ctx.fillRect(-8, -10, 16, 10);
+  // handle
+  ctx.strokeStyle = '#0ea5e9'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-4,-8); ctx.lineTo(-10,-18); ctx.moveTo(4,-8); ctx.lineTo(10,-18); ctx.stroke();
+  ctx.restore();
+
+  // HUD lines
+  // progress bar
+  ctx.fillStyle = '#fff'; ctx.fillRect(40, H-48, W-80, 6);
+  const progW = Math.max(0, Math.min(1, dist/TOTAL_DIST))*(W-80);
+  ctx.fillStyle = '#34d399'; ctx.fillRect(40, H-48, progW, 6);
+
+  requestAnimationFrame(drawFrame);
+}
+
+// main loop
+function loop(ts) {
+  if (!lastTs) lastTs = ts;
+  const dt = Math.min(0.05, (ts - lastTs)/1000); // cap dt for safety
+  lastTs = ts;
+  update(dt);
+  if (running) requestAnimationFrame(loop);
+}
+
+// finish and return result to main page
+function finishAndReturn() {
+  running = false;
+  // 结果 = 实际用时 *10 + 惩罚
+  const result = Math.round(elapsed * 10) + penalty;
+  // show final
+  flash(`已到达！实际 ${elapsed.toFixed(1)}s，惩罚 ${penalty}s → 返回 ${result} 秒`, 2500);
+  // 回传给主页面（若存在）
+  setTimeout(()=> {
+    if (window.opener && typeof window.opener.applyMiniGameResult === 'function') {
+      try {
+        window.opener.applyMiniGameResult(result);
+      } catch(e) {
+        console.warn('回传出错', e);
+      }
+    } else {
+      alert('完成（未检测到主页面回调）结果：' + result + ' 秒');
+    }
+    // 试图关闭自身（若浏览器阻止，则用户需要手动返回）
+    try { window.close(); } catch(e){}
+  }, 2600);
+}
+
+// auto-resize canvas to container width for responsive
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  // keep internal resolution for crisp drawing
+  const ratio = window.devicePixelRatio || 1;
+  const targetW = Math.min(document.getElementById('gameWrap').clientWidth, 980);
+  canvas.width = Math.floor(targetW * ratio);
+  canvas.height = Math.floor(360 * ratio);
+  canvas.style.height = (360) + 'px';
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+  W = canvas.width / ratio;
+  H = canvas.height / ratio;
+  // recompute lanes
+  const roadMargin = 60;
+  const roadWidth = W - roadMargin*2;
+  for (let i=0;i<lanes;i++){
+    laneX[i] = roadMargin + roadWidth*(i/(lanes-1));
+  }
+  player.x = laneX[player.lane];
+}
+
+window.addEventListener('resize', ()=> { resizeCanvas(); drawFrame(); });
+
+// start
+resizeCanvas();
+init();
+requestAnimationFrame(loop);
+</script>
+
+<footer>注：结果返回主程序的值 = round(实际秒 * 10) + 惩罚秒；移动端支持触屏按钮。</footer>
+</body>
+</html>

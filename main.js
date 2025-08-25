@@ -250,6 +250,27 @@ function startMiniGame(id) {
   return; // 不走占位小游戏
 }
 
+//bike（骑行避障）
+if (id === 'bike') {
+  const child = window.open("骑行避障.html", "_blank", "width=980,height=640");
+
+  window.applyMiniGameResult = function(resultSeconds) {
+    alert("骑行避障返回： " + resultSeconds + " 秒（按规则计算）");
+
+    game.remaining -= resultSeconds;
+    if (game.remaining < 0) game.remaining = 0;
+    renderClock();
+
+    resolve(resultSeconds);
+
+    if (child && !child.closed) child.close();
+  };
+
+  return; // ✅ 和前两个保持一致
+}
+
+
+
 
 
     // ------------------ 其他占位小游戏逻辑 ------------------
