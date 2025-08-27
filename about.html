@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>关于我们 - 良乡赶考</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css">
+  <style>
+    h2 {
+      text-align: center;
+      font-size: 28px;
+      margin: 24px 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      text-align: center;
+      transition: transform .2s;
+    }
+
+    .card img {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(96,165,250,0.35);
+      transition: transform .3s, box-shadow .3s;
+      animation: glow 3s infinite ease-in-out;
+    }
+
+    .card img:hover {
+      transform: scale(1.12);
+      box-shadow: 0 0 24px rgba(96,165,250,0.8);
+    }
+
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 12px rgba(96,165,250,0.35); }
+      50% { box-shadow: 0 0 24px rgba(96,165,250,0.65); }
+    }
+
+    .card h3 {
+      margin: 12px 0 6px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .card a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .back-btn {
+      margin: 32px auto 0;
+      display: block;
+      width: fit-content;
+      padding: 10px 20px;
+      border: 1px solid rgba(148,163,184,.25);
+      border-radius: 12px;
+      background: #0b1224;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      transition: all .3s;
+    }
+
+    .back-btn:hover {
+      transform: translateY(-2px);
+      border-color: rgba(96,165,250,.5);
+      background: #10264d;
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h2>关于我们</h2>
+    <div class="grid">
+      <!-- 成员 1 -->
+      <div class="card">
+        <a href="许双博.html">
+          <img src="images/许双博.jpg" alt="许双博">
+        </a>
+        <a href="许双博.html">
+          <h3>许双博</h3>
+          <p>项目策划与剧情设计</p>
+        </a>
+      </div>
+
+      <!-- 成员 2 -->
+      <div class="card">
+        <a href="李尚泽.html">
+          <img src="images/李尚泽.jpg" alt="李尚泽">
+        </a>
+        <a href="李尚泽.html">
+          <h3>李尚泽</h3>
+          <p>前端开发与动画实现</p>
+        </a>
+      </div>
+
+      <!-- 成员 3 -->
+      <div class="card">
+        <a href="王韵嘉.html">
+          <img src="images/王韵嘉.jpg" alt="王韵嘉">
+        </a>
+        <a href="王韵嘉.html">
+          <h3>王韵嘉</h3>
+          <p>视觉设计与美术支持</p>
+        </a>
+      </div>
+
+      <!-- 成员 4 -->
+      <div class="card">
+        <a href="武红玮.html">
+          <img src="images/武红玮.jpg" alt="武红玮">
+        </a>
+        <a href="武红玮.html">
+          <h3>武红玮</h3>
+          <p>系统架构与逻辑开发</p>
+        </a>
+      </div>
+
+      <!-- 成员 5 -->
+      <div class="card">
+        <a href="A.html">
+          <img src="images/A.jpg" alt="A">
+        </a>
+        <a href="A.html">
+          <h3>A</h3>
+          <p>文案与剧情优化</p>
+        </a>
+      </div>
+
+      <!-- 成员 6 -->
+      <div class="card">
+        <a href="B.html">
+          <img src="images/B.jpg" alt="B">
+        </a>
+        <a href="B.html">
+          <h3>B</h3>
+          <p>测试与用户体验改进</p>
+        </a>
+      </div>
+    </div>
+
+    <a href="index.html" class="back-btn">← 返回首页</a>
+  </main>
+</body>
+</html>
