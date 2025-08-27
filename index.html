@@ -1,3 +1,5 @@
+<!-- 这个文件是游戏的主 HTML 文件，包含页面结构和基本样式引用。 -->
+
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -28,7 +30,7 @@
 
 
     <div style="text-align:center; margin-top:10px;">
-    <img src="crazy.jpg" alt="crazy" style="max-width:300px;">
+    <img src="images/crazy.jpg" alt="crazy" style="max-width:300px;">
     </div>
 
     <p class="muted" style="text-align:center;">
@@ -135,7 +137,18 @@
   </div>
 </dialog>
 
+<!-- 引入外部 JS 文件 -->
+<!-- 介绍动画文件 -->
 <script src="intro.js"></script>
+<!-- 配置文件 -->
+<script src="config.js"></script>
+<!-- 工具函数 -->
+<script src="utils.js"></script>
+<!-- 小游戏文件 -->
+<script src="minigames.js"></script>
+<!-- 流程引擎 -->
+<script src="engine.js"></script>
+<!-- 主程序入口 -->
 <script src="main.js"></script>
 </body>
 </html>
